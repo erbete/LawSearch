@@ -1,0 +1,52 @@
+# LawSearch
+
+Prototype for RAG over norske lover fra Lovdata. Svarene henviser til lov, paragraf og ledd.
+
+Tradisjonell RAG: ett søk, så svarer språkmodellen. Ikke agentisk.
+
+.NET 10 modular monolith · Postgres + pgvector · Wolverine · Ollama · Text Embeddings Inference (TEI)
+
+## Kom i gang
+
+1. `docker compose up -d` (Postgres, Ollama med bge-m3, reranker)
+2. `dotnet user-secrets set Chat:ApiKey <nøkkel> --project src/Host`
+3. Hent lovene og kopier dem du vil bruke til `data/`:
+   ```
+   curl -O https://api.lovdata.no/v1/publicData/get/gjeldende-lover.tar.bz2
+   tar -xjf gjeldende-lover.tar.bz2
+   ```
+   Filnavnet er lovens dato og nummer, f.eks. `nl-20050617-062.xml` (arbeidsmiljøloven).
+4. `dotnet run --project src/Host`
+
+## Modeller
+
+| | Tjeneste | Standard |
+|---|---|---|
+| Embedding (`Embedding`) | Ollama | bge-m3. Bytte krever ny innlesing |
+| Reranker (`Rerank`) | TEI | bge-reranker-v2-m3 |
+| Språkmodell (`Chat`) | OpenAI-kompatibelt endepunkt | |
+
+## Innlesing
+
+Ved oppstart sammenlignes `data/` med databasen på filnavn og hash. Nye og endrede lover leses inn i bakgrunnen, og lover uten fil fjernes. Forbigående feil prøves på nytt; andre feil havner i `wolverine.wolverine_dead_letters`.
+
+Tar tid: ca. 5,4 s per chunk med bge-m3 på CPU. Søk virker underveis, men lover som ikke er ferdige, gir ingen treff.
+
+Nullstille databasen: `docker compose down && docker volume rm lawsearch_pgdata && docker compose up -d`.
+
+## Spørsmål
+
+- `/ask?q=…`: svar med kilder. Svaret har en `conversationId`.
+- `/ask?q=…&c=<conversationId>`: oppfølgingsspørsmål i samme samtale, f.eks. «Hva hvis jeg har jobbet der i 12 år?». En ukjent id gir 404.
+- `/search?q=…&k=…`: bare søket, uten språkmodell.
+
+Søket: hybrid (vektor + nøkkelord) → reranker per ledd → topp k. Oppfølgingsspørsmål skrives først om ut fra samtalen. Henvisninger som ikke finnes i kildene, logges som advarsel.
+
+Eksempler ligger i `src/Host/.http`.
+
+**Svartid:** 20–40 s per spørsmål på CPU, mest i rerankeren. Svarer den ikke innen `Rerank:TimeoutSeconds`, brukes rekkefølgen fra hybrid-søket.
+
+## Tester
+
+- `dotnet test`
+- `dotnet test --explicit only`: skriver Expected-filene for parser og chunker på nytt. Sjekk med `git diff`.

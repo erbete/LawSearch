@@ -1,0 +1,16 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Host/Host.csproj" />
+    <Project Path="src/SharedKernel/SharedKernel.csproj" />
+  </Folder>
+
+  <Folder Name="/src/Modules/">
+    <Project Path="src/Modules/Ingestion/Ingestion.csproj" />
+    <Project Path="src/Modules/Query/Query.csproj" />
+  </Folder>
+  <Folder Name="/tests/" />
+  <Folder Name="/tests/Modules/">
+    <Project Path="tests/Modules/Ingestion.Tests/Ingestion.Tests.csproj" />
+    <Project Path="tests/Modules/Query.Tests/Query.Tests.csproj" />
+  </Folder>
+</Solution>

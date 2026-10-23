@@ -1,0 +1,58 @@
+name: lawsearch
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    ports:
+      - "5433:5432"
+    restart: on-failure:10
+    environment:
+      POSTGRES_PASSWORD: "admin"
+      POSTGRES_USER: "admin"
+      POSTGRES_DB: "lawsearch"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d lawsearch"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  ollama:
+    image: ollama/ollama
+    ports:
+      - "11434:11434"
+    restart: on-failure:10
+    environment:
+      OLLAMA_KEEP_ALIVE: "-1"
+    volumes:
+      - ollama:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  ollama-init:
+    image: ollama/ollama
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      OLLAMA_HOST: "ollama:11434"
+    entrypoint: ["ollama", "pull", "bge-m3"]
+    restart: "no"
+
+  reranker:
+      image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.9
+      ports:
+        - "8081:80"
+      restart: on-failure:10
+      command: ["--model-id", "BAAI/bge-reranker-v2-m3", "--auto-truncate", "--max-batch-tokens", "4096"]
+      volumes:
+        - reranker:/data
+
+volumes:
+  pgdata:
+  ollama:
+  reranker:

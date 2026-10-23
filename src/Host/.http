@@ -1,0 +1,31 @@
+@baseUrl = http://localhost:5000
+
+###############################################
+# Spørsmål
+###############################################
+
+### Arbeidsmiljøloven: oppsigelsestid (tvetydig, kan også gjelde husleieloven)
+GET {{baseUrl}}/ask?q=Hvor lang oppsigelsestid har jeg?
+
+### Husleieloven: depositum
+GET {{baseUrl}}/ask?q=Hvor mye depositum kan utleier kreve?
+
+### Finnmarksloven: multer
+GET {{baseUrl}}/ask?q=Kan jeg plukke multer i Finnmark?
+
+### Eksakt paragraf
+GET {{baseUrl}}/ask?q=Hva sier § 28 a?
+
+### Står ikke i loven (skal svare at den ikke finner det)
+GET {{baseUrl}}/ask?q=Hvor mye koster et fiskekort i Tana?
+
+###############################################
+# Samtale
+###############################################
+
+### Første spørsmål
+# @name first
+GET {{baseUrl}}/ask?q=Hvor lang oppsigelsestid har jeg?
+
+### Oppfølging
+GET {{baseUrl}}/ask?q=Hva hvis jeg har jobbet der i 12 år?&c={{first.response.body.conversationId}}
