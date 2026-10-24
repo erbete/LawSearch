@@ -38,9 +38,8 @@ Nullstille databasen: `docker compose down && docker volume rm lawsearch_pgdata 
 
 - `/ask?q=…`: svar med kilder. Svaret har en `conversationId`.
 - `/ask?q=…&c=<conversationId>`: oppfølgingsspørsmål i samme samtale, f.eks. «Hva hvis jeg har jobbet der i 12 år?». En ukjent id gir 404.
-- `/search?q=…&k=…`: bare søket, uten språkmodell.
 
-Søket: hybrid (vektor + nøkkelord) → reranker per ledd → topp k. Oppfølgingsspørsmål skrives først om ut fra samtalen. Henvisninger som ikke finnes i kildene, logges som advarsel.
+Søket: hybrid (vektor + nøkkelord) → reranker per ledd → Query:TopK. Oppfølgingsspørsmål skrives først om ut fra samtalen. Henvisninger som ikke finnes i kildene, logges som advarsel.
 
 Eksempler ligger i `src/Host/.http`.
 

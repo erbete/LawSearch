@@ -101,7 +101,7 @@ internal sealed partial class AnswerService(
         }
 
         string searchQuestion = rewritten ?? question;
-        var hits = await search.SearchAsync(searchQuestion, null, ct);
+        var hits = await search.SearchAsync(searchQuestion, ct);
 
         LogQuestion(logger, searchQuestion, hits.Count);
 

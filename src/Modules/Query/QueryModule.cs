@@ -36,9 +36,6 @@ public static class QueryModule
 
     public static IEndpointRouteBuilder MapQueryEndpoints(this IEndpointRouteBuilder app)
     {
-        app.MapGet("/search", async (SearchService search, string q, int? k, CancellationToken ct) =>
-            await search.SearchAsync(q, k, ct));
-
         app.MapGet("/ask", async (AnswerService answers, string q, Guid? c, CancellationToken ct) =>
         {
             var result = await answers.AnswerAsync(q, c, ct);

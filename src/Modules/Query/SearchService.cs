@@ -31,10 +31,10 @@ internal sealed partial class SearchService(
     IOptions<RerankSettings> rerankSettings,
     ILogger<SearchService> logger)
 {
-    public async Task<List<SearchHit>> SearchAsync(string query, int? limit, CancellationToken ct)
+    public async Task<List<SearchHit>> SearchAsync(string query, CancellationToken ct)
     {
         var settings = querySettings.Value;
-        int take = limit ?? settings.TopK;
+        int take = settings.TopK;
 
         var vector = await embedder.GenerateVectorAsync(query, cancellationToken: ct);
         var candidates = await repository.SearchAsync(vector, query, settings.RerankCandidates, ct);
