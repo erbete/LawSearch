@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
@@ -41,6 +42,7 @@ public sealed partial class IngestLawHandler(
 
     public async Task HandleAsync(IngestLaw message, CancellationToken ct)
     {
+        long started = Stopwatch.GetTimestamp();
         string file = Path.Combine(ingestionSettings.Value.DocumentsFolder, message.FileName);
         string hash = await FileHash.ComputeAsync(file, ct);
 
@@ -69,12 +71,13 @@ public sealed partial class IngestLawHandler(
 
         await repository.SaveLawAsync(law.DocumentId, law.Name, message.FileName, hash, embedded, ct);
 
-        LogIngested(logger, message.FileName, law.DocumentId, chunks.Count);
+        double elapsedMs = Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+        LogIngested(logger, message.FileName, law.DocumentId, chunks.Count, elapsedMs);
     }
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Skipped {File}, already ingested")]
     private static partial void LogSkipped(ILogger logger, string file);
 
-    [LoggerMessage(Level = LogLevel.Information, Message = "Ingested {File} as {DocumentId} with {Chunks} chunks")]
-    private static partial void LogIngested(ILogger logger, string file, string documentId, int chunks);
+    [LoggerMessage(Level = LogLevel.Information, Message = "Ingested {File} as {DocumentId} with {Chunks} chunks in {ElapsedMs:F0} ms")]
+    private static partial void LogIngested(ILogger logger, string file, string documentId, int chunks, double elapsedMs);
 }

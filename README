@@ -8,7 +8,7 @@ Tradisjonell RAG: ett søk, så svarer språkmodellen. Ikke agentisk.
 
 ## Kom i gang
 
-1. `docker compose up -d` (Postgres, Ollama med bge-m3, reranker)
+1. `docker compose up -d` (Postgres, Ollama med bge-m3, reranker). Første gang lastes modellene ned, rundt 3,5 GB.
 2. `dotnet user-secrets set Chat:ApiKey <nøkkel> --project src/Host`
 3. Hent lovene og kopier dem du vil bruke til `data/`:
    ```
@@ -23,14 +23,14 @@ Tradisjonell RAG: ett søk, så svarer språkmodellen. Ikke agentisk.
 | | Tjeneste | Standard |
 |---|---|---|
 | Embedding (`Embedding`) | Ollama | bge-m3. Bytte krever ny innlesing |
-| Reranker (`Rerank`) | TEI | bge-reranker-v2-m3 |
+| Reranker (`Rerank`) | TEI | bge-reranker-v2-m3 (ONNX) |
 | Språkmodell (`Chat`) | OpenAI-kompatibelt endepunkt | |
 
 ## Innlesing
 
 Ved oppstart sammenlignes `data/` med databasen på filnavn og hash. Nye og endrede lover leses inn i bakgrunnen, og lover uten fil fjernes. Forbigående feil prøves på nytt; andre feil havner i `wolverine.wolverine_dead_letters`.
 
-Tar tid: ca. 5,4 s per chunk med bge-m3 på CPU. Søk virker underveis, men lover som ikke er ferdige, gir ingen treff.
+Søk virker underveis, men lover som ikke er ferdige, gir ingen treff.
 
 Nullstille databasen: `docker compose down && docker volume rm lawsearch_pgdata && docker compose up -d`.
 
@@ -39,13 +39,13 @@ Nullstille databasen: `docker compose down && docker volume rm lawsearch_pgdata 
 - `/ask?q=…`: svar med kilder. Svaret har en `conversationId`.
 - `/ask?q=…&c=<conversationId>`: oppfølgingsspørsmål i samme samtale, f.eks. «Hva hvis jeg har jobbet der i 12 år?». En ukjent id gir 404.
 
-Søket: hybrid (vektor + nøkkelord) → reranker per ledd → Query:TopK. Oppfølgingsspørsmål skrives først om ut fra samtalen. Henvisninger som ikke finnes i kildene, logges som advarsel.
+Søket: hybrid (vektor + nøkkelord) → reranker per ledd → `Query:TopK`. Nevner spørsmålet en paragraf, f.eks. «§ 28 a» eller «arbeidsmiljøloven § 15-3», hentes den direkte og kommer først. Oppfølgingsspørsmål skrives først om ut fra de tidligere spørsmålene. Henvisninger som ikke finnes i kildene, logges som advarsel.
+
+Svarer ikke rerankeren innen `Rerank:TimeoutSeconds`, brukes rekkefølgen fra hybrid-søket.
 
 Eksempler ligger i `src/Host/.http`.
-
-**Svartid:** 20–40 s per spørsmål på CPU, mest i rerankeren. Svarer den ikke innen `Rerank:TimeoutSeconds`, brukes rekkefølgen fra hybrid-søket.
 
 ## Tester
 
 - `dotnet test`
-- `dotnet test --explicit only`: skriver Expected-filene for parser og chunker på nytt. Sjekk med `git diff`.
+- `dotnet test --project tests/Modules/Ingestion.Tests --explicit only`: skriver Expected-filene for parser og chunker på nytt. Sjekk med `git diff`.

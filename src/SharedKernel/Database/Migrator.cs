@@ -1,12 +1,13 @@
 using System;
 using System.Globalization;
 using DbUp;
+using Microsoft.Extensions.Logging;
 
 namespace SharedKernel.Database;
 
 public static class Migrator
 {
-    public static void Run(string connectionString, int embeddingDimensions)
+    public static void Run(string connectionString, int embeddingDimensions, ILoggerFactory loggerFactory)
     {
         var upgrader = DeployChanges.To
             .PostgresqlDatabase(connectionString)
@@ -15,7 +16,7 @@ public static class Migrator
                 name => name.Contains(".Scripts."))
             .WithVariable("EmbeddingDimensions", embeddingDimensions.ToString(CultureInfo.InvariantCulture))
             .WithTransactionPerScript()
-            .LogToConsole()
+            .LogTo(loggerFactory)
             .Build();
 
         var result = upgrader.PerformUpgrade();

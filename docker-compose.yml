@@ -33,6 +33,8 @@ services:
       timeout: 3s
       retries: 10
 
+  # Creates bge-m3-cpu with one thread per available core. Without it, Ollama starts
+  # one thread per physical core of the CPU and slows down when fewer cores are available.
   ollama-init:
     image: ollama/ollama
     depends_on:
@@ -40,17 +42,33 @@ services:
         condition: service_healthy
     environment:
       OLLAMA_HOST: "ollama:11434"
-    entrypoint: ["ollama", "pull", "bge-m3"]
+    entrypoint:
+      - sh
+      - -c
+      - |
+        set -e
+        ollama pull bge-m3
+        printf 'FROM bge-m3\nPARAMETER num_thread %s\n' "$$(nproc)" > /tmp/Modelfile
+        ollama create bge-m3-cpu -f /tmp/Modelfile
     restart: "no"
 
+  # onnx-community's ONNX export: BAAI ships no ONNX files, and TEI otherwise falls back
+  # to its slower Candle backend (max 4 texts per batch). Threads are set to the number of
+  # available cores; without it, TEI starts one thread per physical core of the CPU.
   reranker:
-      image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.9
-      ports:
-        - "8081:80"
-      restart: on-failure:10
-      command: ["--model-id", "BAAI/bge-reranker-v2-m3", "--auto-truncate", "--max-batch-tokens", "4096"]
-      volumes:
-        - reranker:/data
+    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.9
+    ports:
+      - "8081:80"
+    restart: on-failure:10
+    entrypoint:
+      - sh
+      - -c
+      - |
+        n=$$(nproc)
+        export OMP_NUM_THREADS=$$n MKL_NUM_THREADS=$$n RAYON_NUM_THREADS=$$n TOKIO_WORKER_THREADS=$$n
+        exec text-embeddings-router --model-id onnx-community/bge-reranker-v2-m3-ONNX --auto-truncate --max-batch-tokens 4096 --tokenization-workers $$n
+    volumes:
+      - reranker:/data
 
 volumes:
   pgdata:

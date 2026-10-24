@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Npgsql;
 using SharedKernel.Database;
@@ -32,7 +33,9 @@ public static class DatabaseSetup
         var database = app.Services.GetRequiredService<IOptions<DatabaseSettings>>().Value;
         var embedding = app.Services.GetRequiredService<IOptions<EmbeddingSettings>>().Value;
 
-        Migrator.Run(database.DefaultConnection, embedding.Dimensions);
+        var loggerFactory = app.Services.GetRequiredService<ILoggerFactory>();
+        Migrator.Run(database.DefaultConnection, embedding.Dimensions, loggerFactory);
+
         return app;
     }
 }

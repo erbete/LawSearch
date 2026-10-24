@@ -483,3 +483,5 @@ $RECYCLE.BIN/
 
 src/*/bin
 src/*/obj
+
+tests/Modules/Query.Tests/Evaluation

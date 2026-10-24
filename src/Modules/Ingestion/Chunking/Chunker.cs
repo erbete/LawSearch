@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 using Ingestion.Parsing;
+using SharedKernel;
 
 namespace Ingestion.Chunking;
 
@@ -87,9 +88,7 @@ internal sealed partial class Chunker
 
                 string id = groups.Count == 1 ? paragraph.Id : $"{paragraph.Id}#{i + 1}";
                 string content = string.Join("\n\n", subsections.Select(s => s.Text));
-                string header = paragraph.Title.Length == 0
-                    ? $"{law.Name} § {paragraph.Number}"
-                    : $"{law.Name} § {paragraph.Number} {paragraph.Title}";
+                string header = ParagraphHeader.Format(law.Name, paragraph.Number, paragraph.Title);
                 if (paragraph.Chapter.Length > 0) header += $"\n{paragraph.Chapter}";
                 string embeddingText = $"{header}\n\n{content}";
 
