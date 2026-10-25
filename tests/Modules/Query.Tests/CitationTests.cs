@@ -69,6 +69,26 @@ public sealed class CitationTests
         Assert.Empty(actual);
     }
 
+    [Fact]
+    public void FindReferences_SeveralReferences_ReturnsAll()
+    {
+        // Act
+        var actual = Citations.FindReferences("Hva er forskjellen på § 15-3 og § 15-4?");
+
+        // Assert
+        Assert.Equal([("", "15-3"), ("", "15-4")], actual);
+    }
+
+    [Fact]
+    public void FindReferences_SameReferenceTwice_ReturnsOne()
+    {
+        // Act
+        var actual = Citations.FindReferences("Gjelder § 28 a, altså § 28a, meg?");
+
+        // Assert
+        Assert.Equal(("", "28A"), Assert.Single(actual));
+    }
+
     private static SearchHit Hit(string law, string number, int subsections) =>
         new("", law, "", number, "",
             Enumerable.Range(1, subsections).Select(i => new Subsection(i, "")).ToList(), 0);

@@ -14,4 +14,7 @@ public sealed class ChatSettings
 
     [Required]
     public required string ApiKey { get; init; }
+
+    [Required, AllowedValues("low", "high", "max")]
+    public required string ReasoningEffort { get; init; }
 }

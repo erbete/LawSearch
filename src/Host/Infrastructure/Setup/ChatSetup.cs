@@ -5,6 +5,7 @@ using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using OpenAI;
+using OpenAI.Chat;
 using SharedKernel.Chat;
 
 namespace Host.Infrastructure.Setup;
@@ -26,7 +27,15 @@ public static class ChatSetup
                     new ApiKeyCredential(settings.ApiKey),
                     new OpenAIClientOptions { Endpoint = new Uri(settings.Endpoint) })
                 .GetChatClient(settings.Model)
-                .AsIChatClient();
+                .AsIChatClient()
+                .AsBuilder()
+                .ConfigureOptions(options => options.RawRepresentationFactory = _ => new ChatCompletionOptions
+                {
+#pragma warning disable OPENAI001
+                    ReasoningEffortLevel = new ChatReasoningEffortLevel(settings.ReasoningEffort)
+#pragma warning restore OPENAI001
+                })
+                .Build();
         });
 
         return builder;

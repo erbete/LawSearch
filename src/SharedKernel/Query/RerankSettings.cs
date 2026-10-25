@@ -11,7 +11,4 @@ public sealed class RerankSettings
 
     [Range(1, 300)]
     public required int TimeoutSeconds { get; init; }
-
-    [Range(1, 32)]
-    public required int BatchSize { get; init; }
 }

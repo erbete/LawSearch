@@ -27,6 +27,8 @@ public sealed class QuerySettings
     [Range(0.0, 2.0)]
     public required float Temperature { get; init; }
 
+    // All subsections of these paragraphs go to the reranker in one request, so their total must stay
+    // under --max-client-batch-size in docker-compose.yml (256). Above it, rerank fails and search uses the SQL order.
     [Range(1, 100)]
     public required int RerankCandidates { get; init; }
 

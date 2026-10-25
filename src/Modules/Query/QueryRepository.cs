@@ -104,7 +104,7 @@ internal sealed class QueryRepository(NpgsqlDataSource db, IOptions<QuerySetting
             subsections AS (
                 SELECT c.paragraph_id,
                     (s.elem ->> 'number')::int AS number,
-                    string_agg(s.elem ->> 'text', ' ' ORDER BY c.id, s.ord) AS text
+                    string_agg(s.elem ->> 'text', ' ' ORDER BY length(c.id), c.id, s.ord) AS text
                 FROM paragraphs p
                 JOIN chunks c ON c.paragraph_id = p.paragraph_id
                 CROSS JOIN LATERAL jsonb_array_elements(c.subsections) WITH ORDINALITY AS s(elem, ord)

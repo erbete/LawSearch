@@ -66,7 +66,7 @@ services:
       - |
         n=$$(nproc)
         export OMP_NUM_THREADS=$$n MKL_NUM_THREADS=$$n RAYON_NUM_THREADS=$$n TOKIO_WORKER_THREADS=$$n
-        exec text-embeddings-router --model-id onnx-community/bge-reranker-v2-m3-ONNX --auto-truncate --max-batch-tokens 4096 --tokenization-workers $$n
+        exec text-embeddings-router --model-id onnx-community/bge-reranker-v2-m3-ONNX --auto-truncate --max-batch-tokens 4096 --max-client-batch-size 256 --tokenization-workers $$n
     volumes:
       - reranker:/data
 

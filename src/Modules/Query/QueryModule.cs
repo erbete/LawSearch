@@ -25,7 +25,11 @@ public static class QueryModule
             .ValidateOnStart();
 
         services.AddHttpClient(RerankClient.HttpClientName, (sp, http) =>
-            http.BaseAddress = new Uri(sp.GetRequiredService<IOptions<RerankSettings>>().Value.Url));
+        {
+            var settings = sp.GetRequiredService<IOptions<RerankSettings>>().Value;
+            http.BaseAddress = new Uri(settings.Url);
+            http.Timeout = TimeSpan.FromSeconds(settings.TimeoutSeconds);
+        });
 
         services.AddSingleton<QueryRepository>();
         services.AddSingleton<RerankClient>();

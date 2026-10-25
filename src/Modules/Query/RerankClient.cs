@@ -1,27 +1,24 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Json;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
-using SharedKernel.Query;
 
 namespace Query;
 
 internal sealed record RerankRequest(string Query, IReadOnlyList<string> Texts);
 internal sealed record RerankResult(int Index, double Score);
 
-// Sends the query and the texts to the reranker (TEI - Text Embeddings Interface) and returns one score per text, in the same order.
+// Sends the query and the texts to the reranker (TEI) and returns one score per text, in the same order.
 // Higher score means the text answers the query better.
-// Texts are sent in batches of BatchSize, because TEI accepts at most 32 texts per request.
-// Returns null if TEI fails or does not answer within TimeoutSeconds, so search can continue without rerank.
+// All texts go in one request; TEI splits the work itself. TEI accepts at most --max-client-batch-size texts per request (docker-compose.yml).
+// Returns null if TEI fails or does not answer within TimeoutSeconds (set on the HttpClient in QueryModule), so search can continue without rerank.
 internal sealed partial class RerankClient(
     IHttpClientFactory httpClientFactory,
-    IOptions<RerankSettings> settings,
     ILogger<RerankClient> logger)
 {
     public const string HttpClientName = "Rerank";
@@ -29,32 +26,23 @@ internal sealed partial class RerankClient(
     public async Task<double[]?> ScoreAsync(string query, IReadOnlyList<string> texts, CancellationToken ct)
     {
         var http = httpClientFactory.CreateClient(HttpClientName);
-        int batchSize = settings.Value.BatchSize;
         var scores = new double[texts.Count];
-
-        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        timeout.CancelAfter(TimeSpan.FromSeconds(settings.Value.TimeoutSeconds));
 
         long started = Stopwatch.GetTimestamp();
 
         try
         {
-            for (int offset = 0; offset < texts.Count; offset += batchSize)
+            using var response = await http.PostAsJsonAsync("rerank", new RerankRequest(query, texts), ct);
+            response.EnsureSuccessStatusCode();
+
+            var results = await response.Content.ReadFromJsonAsync<List<RerankResult>>(ct) ?? [];
+
+            foreach (var result in results)
             {
-                var batch = texts.Skip(offset).Take(batchSize).ToList();
-
-                using var response = await http.PostAsJsonAsync("rerank", new RerankRequest(query, batch), timeout.Token);
-                response.EnsureSuccessStatusCode();
-
-                var results = await response.Content.ReadFromJsonAsync<List<RerankResult>>(timeout.Token) ?? [];
-
-                foreach (var result in results)
-                {
-                    scores[offset + result.Index] = result.Score;
-                }
+                scores[result.Index] = result.Score;
             }
         }
-        catch (Exception ex) when (ex is HttpRequestException || (ex is OperationCanceledException && !ct.IsCancellationRequested))
+        catch (Exception ex) when (ex is HttpRequestException or JsonException || (ex is OperationCanceledException && !ct.IsCancellationRequested))
         {
             double failedMs = Stopwatch.GetElapsedTime(started).TotalMilliseconds;
             LogFailed(logger, texts.Count, failedMs, ex);
