@@ -5,6 +5,9 @@ using System.Text.RegularExpressions;
 
 namespace Query;
 
+// Finds paragraph citations like "§ 9-6" in a text.
+// Search uses it to fetch the paragraphs the user names in the question.
+// The answer is checked with it, in case the language model cites a paragraph it was not given.
 internal static partial class Citations
 {
     private static readonly Dictionary<string, int> Ordinals = new(StringComparer.OrdinalIgnoreCase)
@@ -28,15 +31,30 @@ internal static partial class Citations
         ["femtende"] = 15,
     };
 
-    // Paragraph references in a question, e.g. "§ 28 a" or "arbeidsmiljøloven § 15-3".
-    // Law is empty when not given. Number is normalized: no whitespace, upper case.
-    public static List<(string Law, string Number)> FindReferences(string text) =>
-        Citation().Matches(text)
-            .Select(m => (m.Groups["law"].Value, Normalize(m.Groups["number"].Value)))
-            .Distinct()
-            .ToList();
+    // Finds "§ 28 a" or "arbeidsmiljøloven § 15-3" in the question.
+    // Returns the law (empty if not written) and the number without spaces, e.g. "28A".
+    // Returns an empty list if the question has none.
+    public static List<(string Law, string Number)> FindReferences(string query)
+    {
+        var references = new List<(string Law, string Number)>();
 
-    public static List<string> FindInvalid(string answer, IReadOnlyList<SearchHit> hits)
+        foreach (Match match in Citation().Matches(query))
+        {
+            string law = match.Groups["law"].Value;
+            string number = Normalize(match.Groups["number"].Value);
+
+            if (!references.Contains((law, number)))
+            {
+                references.Add((law, number));
+            }
+        }
+
+        return references;
+    }
+
+    // Finds citations in parentheses in the answer, e.g. "(Husleieloven § 9-6 andre ledd)",
+    // and returns the ones that do not match any of the paragraphs the language model got.
+    public static List<string> FindInvalid(string answer, IReadOnlyList<SearchHit> paragraphs)
     {
         var invalid = new List<string>();
 
@@ -48,10 +66,10 @@ internal static partial class Citations
                 string number = Normalize(match.Groups["number"].Value);
                 var subsections = ParseSubsections(match.Groups["subsections"].Value);
 
-                bool valid = hits.Any(h =>
-                    Normalize(h.Number) == number &&
-                    (law.Length == 0 || string.Equals(h.Law, law, StringComparison.OrdinalIgnoreCase)) &&
-                    subsections.All(n => h.Subsections.Any(s => s.Number == n)));
+                bool valid = paragraphs.Any(p =>
+                    Normalize(p.Number) == number &&
+                    (law.Length == 0 || string.Equals(p.Law, law, StringComparison.OrdinalIgnoreCase)) &&
+                    subsections.All(n => p.Subsections.Any(s => s.Number == n)));
 
                 if (!valid && !invalid.Contains(match.Value))
                 {
@@ -62,6 +80,7 @@ internal static partial class Citations
 
         return invalid;
 
+        // "første og andre" -> 1, 2. "første til tredje" -> 1, 2, 3.
         static List<int> ParseSubsections(string text)
         {
             var numbers = new List<int>();
@@ -82,7 +101,7 @@ internal static partial class Citations
 
                 if (!Ordinals.TryGetValue(word, out int n))
                 {
-                    return []; // Unknown word, e.g. "siste": skip the subsection check
+                    return [];
                 }
 
                 if (range && numbers.Count > 0)

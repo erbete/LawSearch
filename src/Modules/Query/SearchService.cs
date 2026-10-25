@@ -22,6 +22,10 @@ internal sealed record SearchHit(
 
 internal sealed record Subsection(int Number, string Text);
 
+// Finds the paragraphs that best match the query.
+// First the database finds candidates (vector search, keyword search and paragraph numbers
+// written in the query). Then the reranker scores each subsection, and the paragraphs are
+// sorted by their best subsection. Paragraphs named in the query always come first.
 internal sealed partial class SearchService(
     IEmbeddingGenerator<string, Embedding<float>> embedder,
     QueryRepository repository,
@@ -31,7 +35,6 @@ internal sealed partial class SearchService(
 {
     public async Task<List<SearchHit>> SearchAsync(string query, CancellationToken ct)
     {
-        int take = settings.Value.TopK;
         var references = Citations.FindReferences(query);
 
         long started = Stopwatch.GetTimestamp();
@@ -42,7 +45,7 @@ internal sealed partial class SearchService(
         var candidates = await repository.SearchAsync(vector, query, references, ct);
         double sqlMs = Stopwatch.GetElapsedTime(started).TotalMilliseconds;
 
-        LogSearched(logger, embeddingMs, sqlMs, candidates.Count);
+        LogSearched(logger, query, embeddingMs, sqlMs, candidates.Count);
 
         if (candidates.Count == 0)
         {
@@ -50,16 +53,16 @@ internal sealed partial class SearchService(
         }
 
         var texts = new List<string>();
-        var owners = new List<(int Candidate, int Subsection)>();
+        var origins = new List<(int Candidate, int Subsection)>();
 
         for (int i = 0; i < candidates.Count; i++)
         {
-            var h = candidates[i].Hit;
+            var paragraph = candidates[i].Hit;
 
-            foreach (var s in h.Subsections)
+            foreach (var subsection in paragraph.Subsections)
             {
-                texts.Add($"{ParagraphHeader.Format(h.Law, h.Number, h.Title)}\n\n{s.Text}");
-                owners.Add((i, s.Number));
+                texts.Add($"{ParagraphHeader.Format(paragraph.Law, paragraph.Number, paragraph.Title)}\n\n{subsection.Text}");
+                origins.Add((i, subsection.Number));
             }
         }
 
@@ -67,26 +70,25 @@ internal sealed partial class SearchService(
 
         if (scores is null)
         {
-            return candidates.Take(take).Select(c => c.Hit).ToList();
+            return candidates.Take(settings.Value.TopK).Select(c => c.Hit).ToList();
         }
 
-        var best = new double[candidates.Count];
+        var bestScore = new double[candidates.Count];
         var bestSubsection = new int[candidates.Count];
 
         for (int t = 0; t < scores.Length; t++)
         {
-            var (candidate, subsection) = owners[t];
+            var (candidate, subsection) = origins[t];
 
-            if (scores[t] > best[candidate])
+            if (scores[t] > bestScore[candidate])
             {
-                best[candidate] = scores[t];
+                bestScore[candidate] = scores[t];
                 bestSubsection[candidate] = subsection;
             }
         }
 
-        // Paragraphs named in the question stay first, whatever the reranker scores them.
         var reranked = candidates
-            .Select((c, i) => (Hit: c.Hit with { Score = best[i] }, c.Exact, HybridRank: i + 1, Subsection: bestSubsection[i]))
+            .Select((c, i) => (Hit: c.Hit with { Score = bestScore[i] }, c.Exact, RankBeforeRerank: i + 1, Subsection: bestSubsection[i]))
             .OrderByDescending(x => x.Exact)
             .ThenByDescending(x => x.Hit.Score)
             .ToList();
@@ -95,15 +97,15 @@ internal sealed partial class SearchService(
         {
             var r = reranked[i];
             string source = r.Exact ? "lookup" : "search";
-            LogRank(logger, r.Hit.Id, r.HybridRank, i + 1, r.Hit.Score, r.Subsection, source);
+            LogRank(logger, r.Hit.Id, r.RankBeforeRerank, i + 1, r.Hit.Score, r.Subsection, source);
         }
 
-        return reranked.Take(take).Select(x => x.Hit).ToList();
+        return reranked.Take(settings.Value.TopK).Select(x => x.Hit).ToList();
     }
 
-    [LoggerMessage(Level = LogLevel.Information, Message = "Searched {Candidates} candidates in {EmbeddingMs:F0} ms embedding + {SqlMs:F0} ms SQL")]
-    private static partial void LogSearched(ILogger logger, double embeddingMs, double sqlMs, int candidates);
+    [LoggerMessage(Level = LogLevel.Information, Message = "Searched {Candidates} candidates for '{Query}' in {EmbeddingMs:F0} ms embedding + {SqlMs:F0} ms SQL")]
+    private static partial void LogSearched(ILogger logger, string query, double embeddingMs, double sqlMs, int candidates);
 
-    [LoggerMessage(Level = LogLevel.Information, Message = "Ranked {Id} as {RerankRank} ({HybridRank} before rerank) with score {Score:F4}, subsection {Subsection}, found by {Source}")]
-    private static partial void LogRank(ILogger logger, string id, int hybridRank, int rerankRank, double score, int subsection, string source);
+    [LoggerMessage(Level = LogLevel.Information, Message = "Ranked {Id} as {Rank} ({RankBeforeRerank} before rerank) with score {Score:F4}, subsection {Subsection}, found by {Source}")]
+    private static partial void LogRank(ILogger logger, string id, int rankBeforeRerank, int rank, double score, int subsection, string source);
 }

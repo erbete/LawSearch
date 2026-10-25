@@ -31,6 +31,7 @@ public static class QueryModule
         services.AddSingleton<RerankClient>();
         services.AddSingleton<SearchService>();
         services.AddSingleton<QuestionRewriter>();
+        services.AddSingleton<AnswerGenerator>();
         services.AddSingleton<AnswerService>();
         return services;
     }

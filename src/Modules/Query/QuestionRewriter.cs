@@ -10,12 +10,16 @@ using SharedKernel.Query;
 
 namespace Query;
 
+// Search only sees the latest question, not the conversation. A follow-up like
+// "What if he won't pay it back?" means nothing on its own, so the language model
+// rewrites it using the previous questions: "What can I do if the landlord won't
+// pay back the deposit?"
 internal sealed partial class QuestionRewriter(
     IChatClient chat,
     IOptions<QuerySettings> settings,
     ILogger<QuestionRewriter> logger)
 {
-    private const string Prompt = """
+    private const string SystemPrompt = """
         Skriv om brukerens siste spørsmål til et selvstendig spørsmål som kan forstås uten de tidligere spørsmålene.
 
         Regler:
@@ -28,24 +32,24 @@ internal sealed partial class QuestionRewriter(
 
     public async Task<string> RewriteAsync(string question, IReadOnlyList<HistoryEntry> history, CancellationToken ct)
     {
-        string earlier = string.Join("\n", history.Select(h => $"- {h.Question}"));
+        string previousQuestion = string.Join("\n", history.Select(h => $"- {h.Question}"));
 
         List<ChatMessage> messages =
         [
-            new(ChatRole.System, Prompt),
-            new(ChatRole.User, $"Tidligere spørsmål:\n{earlier}\n\nSiste spørsmål: {question}")
+            new(ChatRole.System, SystemPrompt),
+            new(ChatRole.User, $"Tidligere spørsmål:\n{previousQuestion}\n\nSiste spørsmål: {question}")
         ];
 
         var options = new ChatOptions { Temperature = settings.Value.Temperature };
 
         long started = Stopwatch.GetTimestamp();
-        string rewritten = (await chat.GetResponseAsync(messages, options, ct)).Text.Trim();
+        string rewrittenQuestion = (await chat.GetResponseAsync(messages, options, ct)).Text.Trim();
         double elapsedMs = Stopwatch.GetElapsedTime(started).TotalMilliseconds;
-        LogRewritten(logger, question, rewritten, elapsedMs);
+        LogRewritten(logger, question, rewrittenQuestion, elapsedMs);
 
-        return rewritten;
+        return rewrittenQuestion;
     }
 
-    [LoggerMessage(Level = LogLevel.Information, Message = "Rewrote '{Question}' as '{Rewritten}' in {ElapsedMs:F0} ms")]
-    private static partial void LogRewritten(ILogger logger, string question, string rewritten, double elapsedMs);
+    [LoggerMessage(Level = LogLevel.Information, Message = "Rewrote '{Question}' as '{RewrittenQuestion}' in {ElapsedMs:F0} ms")]
+    private static partial void LogRewritten(ILogger logger, string question, string rewrittenQuestion, double elapsedMs);
 }

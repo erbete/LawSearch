@@ -15,6 +15,10 @@ namespace Query;
 internal sealed record RerankRequest(string Query, IReadOnlyList<string> Texts);
 internal sealed record RerankResult(int Index, double Score);
 
+// Sends the query and the texts to the reranker (TEI - Text Embeddings Interface) and returns one score per text, in the same order.
+// Higher score means the text answers the query better.
+// Texts are sent in batches of BatchSize, because TEI accepts at most 32 texts per request.
+// Returns null if TEI fails or does not answer within TimeoutSeconds, so search can continue without rerank.
 internal sealed partial class RerankClient(
     IHttpClientFactory httpClientFactory,
     IOptions<RerankSettings> settings,
@@ -22,7 +26,6 @@ internal sealed partial class RerankClient(
 {
     public const string HttpClientName = "Rerank";
 
-    // Returns null when TEI fails or does not answer within TimeoutSeconds.
     public async Task<double[]?> ScoreAsync(string query, IReadOnlyList<string> texts, CancellationToken ct)
     {
         var http = httpClientFactory.CreateClient(HttpClientName);
@@ -64,9 +67,9 @@ internal sealed partial class RerankClient(
         return scores;
     }
 
-    [LoggerMessage(Level = LogLevel.Information, Message = "Reranked {Texts} texts in {ElapsedMs:F0} ms")]
-    private static partial void LogScored(ILogger logger, int texts, double elapsedMs);
+    [LoggerMessage(Level = LogLevel.Information, Message = "Reranked {Count} texts in {ElapsedMs:F0} ms")]
+    private static partial void LogScored(ILogger logger, int count, double elapsedMs);
 
-    [LoggerMessage(Level = LogLevel.Warning, Message = "Failed to rerank {Texts} texts after {ElapsedMs:F0} ms")]
-    private static partial void LogFailed(ILogger logger, int texts, double elapsedMs, Exception exception);
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Failed to rerank {Count} texts after {ElapsedMs:F0} ms")]
+    private static partial void LogFailed(ILogger logger, int count, double elapsedMs, Exception exception);
 }

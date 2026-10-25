@@ -31,5 +31,5 @@ public sealed class QuerySettings
     public required int RerankCandidates { get; init; }
 
     [Range(1, 20)]
-    public required int HistoryLength { get; init; }
+    public required int HistoryLimit { get; init; }
 }
