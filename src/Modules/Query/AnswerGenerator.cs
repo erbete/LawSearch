@@ -40,7 +40,7 @@ internal sealed partial class AnswerGenerator(
     public async Task<string> GenerateAsync(
         string question,
         IReadOnlyList<HistoryEntry> history,
-        IReadOnlyList<SearchHit> paragraphs,
+        IReadOnlyList<Paragraph> paragraphs,
         CancellationToken ct)
     {
         // The paragraphs as one text, separated by "---":

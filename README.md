@@ -1,12 +1,10 @@
 # LawSearch
 
-Eksempel på tradisjonell RAG over norske lover fra Lovdata. Svarene henviser til lov, paragraf og ledd.
-
-Først ett søk etter relevante paragrafer, så svarer språkmodellen ut fra dem.
+Eksempel på tradisjonell RAG over norske lover fra Lovdata.
 
 ## Kom i gang
 
-1. `docker compose up -d` (Postgres, Ollama med bge-m3, reranker). Første gang lastes modellene ned, rundt 3,5 GB.
+1. `docker compose up -d`
 2. `dotnet user-secrets set Chat:ApiKey <nøkkel> --project src/Host`
 3. Hent lovene og kopier dem du vil bruke til `data/`:
    ```
@@ -18,11 +16,11 @@ Først ett søk etter relevante paragrafer, så svarer språkmodellen ut fra dem
 
 ## Hva som brukes til hva
 
-- **.NET 10:** selve appen, bygget som en modular monolith: én app som kjøres som én prosess, men delt i moduler som holder seg til sitt eget ansvar. `Ingestion` leser inn lovene, `Query` svarer på spørsmål, og `Host` starter dem.
+- **.NET 10:** selve appen, bygget som en modular monolith. `Ingestion` leser inn lovene, `Query` svarer på spørsmål, og `Host` kjører systemet.
 - **Postgres + pgvector:** lagrer lovene, chunks og vektorer, og gjør vektorsøket og ordsøket.
 - **Ollama:** kjører bge-m3, som gjør tekst om til vektorer, både ved innlesing og for hvert spørsmål.
 - **Text Embeddings Inference (TEI):** kjører rerankeren bge-reranker-v2-m3.
-- **Wolverine:** kjører innlesingen i bakgrunnen og prøver på nytt ved feil. Køen ligger i Postgres.
+- **Wolverine:** kjører innlesingen av lover til databasen ("ingestion") i bakgrunnen.
 - **Språkmodell** (OpenAI-kompatibelt endepunkt): skriver om oppfølgingsspørsmål og lager svarene.
 
 ## Slik henger det sammen
@@ -43,7 +41,7 @@ Ved oppstart leses lovene i `data/`:
 
 Eksempel på hvordan en lov ser ut etter stegene er å finne i `tests/Modules/Ingestion.Tests/TestData/Expected/`: `LawParser/` viser paragrafene og leddene, og `Chunker/` viser chunkene.
 
-Bare nye og endrede lover leses inn (sammenlignet på filnavn og innhold), og lover uten fil fjernes. Forbigående feil prøves på nytt; andre feil havner i `wolverine.wolverine_dead_letters`. Søk virker underveis, men lover som ikke er ferdige, gir ingen treff.
+Bare nye og endrede lover leses inn, og lover uten fil fjernes. Søk virker underveis, men lover som ikke er ferdige, gir ingen treff.
 
 Nullstille databasen: `docker compose down && docker volume rm lawsearch_pgdata && docker compose up -d`.
 

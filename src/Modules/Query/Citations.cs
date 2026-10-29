@@ -54,7 +54,7 @@ internal static partial class Citations
 
     // Finds citations in parentheses in the answer, e.g. "(Husleieloven § 9-6 andre ledd)",
     // and returns the ones that do not match any of the paragraphs the language model got.
-    public static List<string> FindInvalid(string answer, IReadOnlyList<SearchHit> paragraphs)
+    public static List<string> FindInvalid(string answer, IReadOnlyList<Paragraph> paragraphs)
     {
         var invalid = new List<string>();
 

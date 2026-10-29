@@ -11,7 +11,7 @@ using SharedKernel.Query;
 
 namespace Query;
 
-internal sealed record SearchHit(
+internal sealed record Paragraph(
     string Id,
     string Law,
     string Chapter,
@@ -33,7 +33,7 @@ internal sealed partial class SearchService(
     IOptions<QuerySettings> settings,
     ILogger<SearchService> logger)
 {
-    public async Task<List<SearchHit>> SearchAsync(string query, CancellationToken ct)
+    public async Task<IReadOnlyList<Paragraph>> SearchAsync(string query, CancellationToken ct)
     {
         var references = Citations.FindReferences(query);
 
@@ -57,7 +57,7 @@ internal sealed partial class SearchService(
 
         for (int i = 0; i < candidates.Count; i++)
         {
-            var paragraph = candidates[i].Hit;
+            var paragraph = candidates[i].Paragraph;
 
             foreach (var subsection in paragraph.Subsections)
             {
@@ -70,7 +70,7 @@ internal sealed partial class SearchService(
 
         if (scores is null)
         {
-            return candidates.Take(settings.Value.TopK).Select(c => c.Hit).ToList();
+            return candidates.Take(settings.Value.TopK).Select(c => c.Paragraph).ToList();
         }
 
         var bestScore = new double[candidates.Count];
@@ -88,19 +88,19 @@ internal sealed partial class SearchService(
         }
 
         var reranked = candidates
-            .Select((c, i) => (Hit: c.Hit with { Score = bestScore[i] }, c.Exact, RankBeforeRerank: i + 1, Subsection: bestSubsection[i]))
+            .Select((c, i) => (Paragraph: c.Paragraph with { Score = bestScore[i] }, c.Exact, RankBeforeRerank: i + 1, Subsection: bestSubsection[i]))
             .OrderByDescending(x => x.Exact)
-            .ThenByDescending(x => x.Hit.Score)
+            .ThenByDescending(x => x.Paragraph.Score)
             .ToList();
 
         for (int i = 0; i < reranked.Count; i++)
         {
             var r = reranked[i];
             string source = r.Exact ? "lookup" : "search";
-            LogRank(logger, r.Hit.Id, r.RankBeforeRerank, i + 1, r.Hit.Score, r.Subsection, source);
+            LogRank(logger, r.Paragraph.Id, r.RankBeforeRerank, i + 1, r.Paragraph.Score, r.Subsection, source);
         }
 
-        return reranked.Take(settings.Value.TopK).Select(x => x.Hit).ToList();
+        return reranked.Take(settings.Value.TopK).Select(x => x.Paragraph).ToList();
     }
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Searched {Candidates} candidates for '{Query}' in {EmbeddingMs:F0} ms embedding + {SqlMs:F0} ms SQL")]

@@ -17,7 +17,7 @@ internal sealed class QueryRepository(NpgsqlDataSource db, IOptions<QuerySetting
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
-    public async Task<IReadOnlyList<(SearchHit Hit, bool Exact)>> SearchAsync(
+    public async Task<IReadOnlyList<(Paragraph Paragraph, bool Exact)>> SearchAsync(
         ReadOnlyMemory<float> vector,
         string query,
         IReadOnlyList<(string Law, string Number)> references,
@@ -139,7 +139,7 @@ internal sealed class QueryRepository(NpgsqlDataSource db, IOptions<QuerySetting
         cmd.Parameters.AddWithValue("keywordWeight", s.KeywordWeight);
         cmd.Parameters.AddWithValue("limit", s.RerankCandidates);
 
-        var hits = new List<(SearchHit Hit, bool Exact)>();
+        var paragraphs = new List<(Paragraph Hit, bool Exact)>();
         await using var reader = await cmd.ExecuteReaderAsync(ct);
 
         while (await reader.ReadAsync(ct))
@@ -152,7 +152,7 @@ internal sealed class QueryRepository(NpgsqlDataSource db, IOptions<QuerySetting
                 })
                 .ToList();
 
-            var hit = new SearchHit(
+            var paragraph = new Paragraph(
                 Id: reader.GetString(0),
                 Law: reader.GetString(1),
                 Chapter: reader.GetString(2),
@@ -161,10 +161,10 @@ internal sealed class QueryRepository(NpgsqlDataSource db, IOptions<QuerySetting
                 Subsections: subsections,
                 Score: reader.GetDouble(6));
 
-            hits.Add((hit, reader.GetBoolean(7)));
+            paragraphs.Add((paragraph, reader.GetBoolean(7)));
         }
 
-        return hits;
+        return paragraphs;
     }
 
     public async Task<IReadOnlyList<HistoryEntry>> GetHistoryAsync(Guid conversationId, int limit, CancellationToken ct)

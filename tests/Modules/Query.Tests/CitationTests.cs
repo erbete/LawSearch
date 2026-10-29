@@ -5,7 +5,7 @@ namespace Query.Tests;
 
 public sealed class CitationTests
 {
-    private static readonly List<SearchHit> Hits =
+    private static readonly List<Paragraph> Hits =
     [
         Hit("Arbeidsmiljøloven", "15-3", 10),
         Hit("Arbeidsmiljøloven", "14 A-2", 5),
@@ -89,7 +89,7 @@ public sealed class CitationTests
         Assert.Equal(("", "28A"), Assert.Single(actual));
     }
 
-    private static SearchHit Hit(string law, string number, int subsections) =>
+    private static Paragraph Hit(string law, string number, int subsections) =>
         new("", law, "", number, "",
             Enumerable.Range(1, subsections).Select(i => new Subsection(i, "")).ToList(), 0);
 }

@@ -7,7 +7,7 @@ using SharedKernel.Query;
 
 namespace Query;
 
-internal sealed record AnswerResult(Guid ConversationId, string Answer, List<SearchHit> Sources);
+internal sealed record AnswerResult(Guid ConversationId, string Answer, IReadOnlyList<Paragraph> Sources);
 
 // Answers a question from start to finish: fetches the conversation, rewrites follow-up
 // questions so search understands them, finds the paragraphs, lets the language model
